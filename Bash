@@ -1,0 +1,18 @@
+# Savemate-app
+Savemate, a shopping companion for South Africans.
+# Initialize git in your project folder
+cd save-mate
+git init
+
+# Add all files
+git add .
+
+# Commit files
+git commit -m "Initial commit: SaveMate shopping app"
+
+# Connect to GitHub repository
+git remote add origin https://github.com/YOUR_USERNAME/save-mate.git
+
+# Push to GitHub
+git branch -M main
+git push -u origin main
