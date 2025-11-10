@@ -1,4 +1,4 @@
-import { Navigation } from '.Navigation.js';
+import { Navigation } from 'Navigation.js';
 import { AuthPage } from '.AuthPage.js';
 import { HomePage } from '.HomePage.js';
 import { ExplorePage } from '.ExplorePage.js';
