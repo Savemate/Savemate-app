@@ -1,4 +1,4 @@
-import { ShoppingList } from '../components/ShoppingList.js';
+import { ShoppingList } from '..ShoppingList.js';
 
 export class ShoppingListPage {
     static async render() {
