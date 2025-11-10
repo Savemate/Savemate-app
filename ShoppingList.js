@@ -1,4 +1,4 @@
-import { Helpers } from '../utils/helpers.js';
+import { Helpers } from '..helpers.js';
 
 export class ShoppingList {
     static render(list) {
