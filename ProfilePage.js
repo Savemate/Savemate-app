@@ -1,5 +1,5 @@
-import { PostCard } from '../components/PostCard.js';
-import { Helpers } from '../utils/helpers.js';
+import { PostCard } from '.PostCard.js';
+import { Helpers } from '.helpers.js';
 
 export class ProfilePage {
     static render(user, isOwnProfile = false) {
