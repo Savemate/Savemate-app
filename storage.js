@@ -1,5 +1,5 @@
-import { supabase } from './supabase.js';
-import { ErrorHandler } from './errorHandler.js';
+import { supabase } from '.supabase.js';
+import { ErrorHandler } from '.errorHandler.js';
 
 export class StorageService {
     static async uploadFile(file, folder = 'general') {
