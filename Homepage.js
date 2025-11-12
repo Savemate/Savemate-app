@@ -1,4 +1,4 @@
-import { DealCard } from '../components/DealCard.js';
+import { DealCard } from './DealCard.js';
 
 export class HomePage {
     static async render() {
