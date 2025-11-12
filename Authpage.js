@@ -1,4 +1,4 @@
-import { AuthForm } from './AuthForm.js';
+import { AuthForm } from '.AuthForm.js';
 
 export class AuthPage {
     static render() {
