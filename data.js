@@ -1,6 +1,6 @@
 import { supabase } from './supabase.js';
-import { ErrorHandler } from '../utils/errorHandler.js';
-import { Helpers } from '../utils/helpers.js';
+import { ErrorHandler } from './errorHandler.js';
+import { Helpers } from './helpers.js';
 
 // Mock data for fallback
 const mockProducts = [
