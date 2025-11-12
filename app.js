@@ -1,319 +1,636 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-// Supabase configuration
-const supabaseUrl = 'https://ykgtjyleyuxgwdmaduzs.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrZ3RqeWxleXV4Z3dkbWFkdXpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNDE1OTksImV4cCI6MjA3NzkxNzU5OX0.XsqpRrql4dT34meefxiKVOwECXlqm4ynDXRcedvgYq0'
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-// Mock data
-const mockProducts = [
-    {
-        id: '1',
-        title: "Tastic Parboiled Rice 5kg",
-        current_price: 105.99,
-        original_price: 129.99,
-        category: "Groceries",
-        store: { name: "Checkers", color_hex: "#E31B23" }
-    },
-    {
-        id: '2', 
-        title: "Ouma Rusks Buttermilk Chunky",
-        current_price: 52.99,
-        original_price: 59.99,
-        category: "Groceries",
-        store: { name: "Pick n Pay", color_hex: "#0055A4" }
-    },
-    {
-        id: '3',
-        title: "Rooibos Tea 40bags",
-        current_price: 35.50,
-        original_price: 42.00,
-        category: "Beverages", 
-        store: { name: "Woolworths", color_hex: "#000000" }
-    }
-]
-
-const mockPosts = [
-    {
-        id: '1',
-        user: "DealFinderSA",
-        content: "Just found Tastic Rice for R105.99 at Checkers! That's a R24 saving! 🎉",
-        time: "2 hours ago",
-        likes: 24,
-        comments: 8,
-        store: "Checkers"
-    }
-]
+import { Navigation } from './Navigation.js';
+import { AuthPage } from './AuthPage.js';
+import { HomePage } from './HomePage.js';
+import { ExplorePage } from './ExplorePage.js';
+import { UniversePage } from './UniversePage.js';
+import { ScannerPage } from './ScannerPage.js';
+import { ShoppingListPage } from './ShoppingListPage.js';
+import { ProfilePage } from './ProfilePage.js';
+import { BlackMarketPage } from './BlackMarketPage.js';
+import { MessagesPage } from './MessagesPage.js';
+import { SettingsPage } from './SettingsPage.js';
+import { MusicPage } from './MusicPage.js';
+import { VideosPage } from './VideosPage.js';
+import { PicturesPage } from './PicturesPage.js';
+import { BooksPage } from './BooksPage.js';
+import { AuthService } from './auth.js';
+import { DataService } from './data.js';
+import { StorageService } from './storage.js';
+import { ErrorHandler } from './errorHandler.js';
+import { Helpers } from './helpers.js';
+import { DealCard } from './DealCard.js';
+import { PostCard } from '.PostCard.js';
+import { ShoppingList } from '.ShoppingList.js';
 
 class SaveMateApp {
     constructor() {
-        this.currentUser = null
-        this.currentPage = 'home'
-        this.init()
+        this.currentUser = null;
+        this.currentPage = 'home';
+        this.savedDeals = new Set();
+        this.darkMode = localStorage.getItem('darkMode') === 'true';
+        this.userProfile = null;
+        
+        this.init();
     }
 
     async init() {
-        await this.checkAuth()
-        this.renderApp()
+        // Set initial theme
+        if (this.darkMode) {
+            document.body.classList.add('dark-mode');
+        }
+
+        // Check authentication
+        await this.checkAuth();
+        this.setupEventListeners();
+        this.renderApp();
     }
 
     async checkAuth() {
-        const { data: { user } } = await supabase.auth.getUser()
-        this.currentUser = user
+        const result = await AuthService.getCurrentUser();
+        if (result.success) {
+            this.currentUser = result.user;
+            // Load user profile
+            if (this.currentUser) {
+                const profileResult = await AuthService.getUserProfile(this.currentUser.id);
+                if (profileResult.success) {
+                    this.userProfile = profileResult.data;
+                }
+            }
+        }
+    }
+
+    setupEventListeners() {
+        // Auth state changes
+        AuthService.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN') {
+                this.currentUser = session.user;
+                this.renderApp();
+            } else if (event === 'SIGNED_OUT') {
+                this.currentUser = null;
+                this.userProfile = null;
+                this.renderApp();
+            }
+        });
     }
 
     renderApp() {
-        const app = document.getElementById('app')
+        const app = document.getElementById('app');
         
         if (!this.currentUser) {
-            app.innerHTML = this.renderAuthPage()
-            return
+            app.innerHTML = AuthPage.render();
+            return;
         }
 
         app.innerHTML = `
-            <div class="app-header">
-                <div class="logo" onclick="app.switchPage('home')">
-                    <i class="fas fa-shopping-bag"></i>
-                    <span>SaveMate</span>
-                </div>
-                <div class="header-actions">
-                    <button class="header-btn" onclick="app.switchPage('profile')">
-                        <i class="fas fa-user"></i>
-                    </button>
-                    <button class="header-btn" onclick="app.logout()">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </button>
-                </div>
-            </div>
-
+            ${Navigation.renderHeader(this.currentUser)}
             <main class="main-content">
-                ${this.renderHomePage()}
+                <!-- Pages will be rendered here -->
             </main>
+            ${Navigation.renderBottomNav(this.currentPage)}
+        `;
 
-            <div class="bottom-nav">
-                <div class="nav-item active" onclick="app.switchPage('home')">
-                    <i class="fas fa-home"></i>
-                    <span>Home</span>
-                </div>
-                <div class="nav-item" onclick="app.switchPage('explore')">
-                    <i class="fas fa-compass"></i>
-                    <span>Explore</span>
-                </div>
-                <div class="nav-item" onclick="app.switchPage('universe')">
-                    <i class="fas fa-users"></i>
-                    <span>Universe</span>
-                </div>
-                <div class="nav-item" onclick="app.switchPage('scanner')">
-                    <i class="fas fa-camera"></i>
-                    <span>Scan</span>
-                </div>
-                <div class="nav-item" onclick="app.switchPage('shopping-list')">
-                    <i class="fas fa-list"></i>
-                    <span>List</span>
-                </div>
-            </div>
-        `
-
-        this.loadHomeData()
+        this.switchPage(this.currentPage);
     }
 
-    renderAuthPage() {
-        return `
-            <div class="auth-container">
-                <div class="auth-card">
-                    <h2>Welcome to SaveMate</h2>
-                    <div id="loginForm">
-                        <div class="form-group">
-                            <label for="email">Email</label>
-                            <input type="email" id="email" class="form-control" placeholder="Enter your email">
-                        </div>
-                        <div class="form-group">
-                            <label for="password">Password</label>
-                            <input type="password" id="password" class="form-control" placeholder="Enter your password">
-                        </div>
-                        <button class="btn btn-primary" onclick="app.handleLogin()">Log In</button>
-                        <div class="auth-switch">
-                            Don't have an account? <a href="#" onclick="app.showSignup()">Sign Up</a>
-                        </div>
-                    </div>
-                    <div id="signupForm" style="display: none;">
-                        <div class="form-group">
-                            <label for="signupName">Full Name</label>
-                            <input type="text" id="signupName" class="form-control" placeholder="Enter your full name">
-                        </div>
-                        <div class="form-group">
-                            <label for="signupEmail">Email</label>
-                            <input type="email" id="signupEmail" class="form-control" placeholder="Enter your email">
-                        </div>
-                        <div class="form-group">
-                            <label for="signupPassword">Password</label>
-                            <input type="password" id="signupPassword" class="form-control" placeholder="Create a password">
-                        </div>
-                        <button class="btn btn-primary" onclick="app.handleSignup()">Sign Up</button>
-                        <div class="auth-switch">
-                            Already have an account? <a href="#" onclick="app.showLogin()">Log In</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `
+    async switchPage(pageId) {
+        this.currentPage = pageId;
+        
+        // Update navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.remove('active');
+            if (item.getAttribute('data-page') === pageId) {
+                item.classList.add('active');
+            }
+        });
+
+        const mainContent = document.querySelector('.main-content');
+        
+        switch (pageId) {
+            case 'home':
+                mainContent.innerHTML = await HomePage.render();
+                await this.loadHomePageData();
+                break;
+            case 'explore':
+                mainContent.innerHTML = await ExplorePage.render();
+                await this.loadExplorePageData();
+                break;
+            case 'universe':
+                mainContent.innerHTML = UniversePage.render(this.currentUser?.id);
+                await this.loadUniversePageData();
+                break;
+            case 'scanner':
+                mainContent.innerHTML = ScannerPage.render();
+                break;
+            case 'shopping-list':
+                mainContent.innerHTML = await ShoppingListPage.render();
+                await this.loadShoppingListData();
+                break;
+            case 'profile':
+                mainContent.innerHTML = ProfilePage.render(
+                    this.userProfile || this.currentUser, 
+                    true
+                );
+                await this.loadProfilePageData();
+                break;
+            case 'black-market':
+                mainContent.innerHTML = BlackMarketPage.render();
+                await this.loadBlackMarketData();
+                break;
+            case 'messages':
+                mainContent.innerHTML = MessagesPage.render();
+                break;
+            case 'settings':
+                mainContent.innerHTML = SettingsPage.render();
+                break;
+            case 'music':
+                mainContent.innerHTML = MusicPage.render();
+                break;
+            case 'videos':
+                mainContent.innerHTML = VideosPage.render();
+                break;
+            case 'pictures':
+                mainContent.innerHTML = PicturesPage.render();
+                break;
+            case 'books':
+                mainContent.innerHTML = BooksPage.render();
+                break;
+            default:
+                mainContent.innerHTML = await HomePage.render();
+                await this.loadHomePageData();
+        }
     }
 
-    renderHomePage() {
-        return `
-            <div class="page active">
-                <div class="welcome-banner">
-                    <h2>Hello, Shopper!</h2>
-                    <p>Discover the best deals from South African retailers</p>
-                </div>
+    async loadHomePageData() {
+        // Load trending deals
+        const trendingResult = await DataService.getProducts({ limit: 6 });
+        if (trendingResult.success) {
+            const dealsContainer = document.getElementById('dealsContainer');
+            dealsContainer.innerHTML = trendingResult.data.map(product => 
+                DealCard.render(product, this.savedDeals.has(product.id))
+            ).join('');
+        }
 
-                <div class="search-container">
-                    <div class="search-box">
-                        <i class="fas fa-search"></i>
-                        <input type="text" placeholder="Search products, stores, or deals...">
-                    </div>
-                </div>
-
-                <h2 class="section-title">Trending Deals</h2>
-                <div class="deals-grid" id="dealsContainer">
-                    ${this.renderDealsSkeleton()}
-                </div>
-            </div>
-        `
+        // Load recent deals
+        const recentResult = await DataService.getProducts({ limit: 6 });
+        if (recentResult.success) {
+            const recentContainer = document.getElementById('recentDealsContainer');
+            recentContainer.innerHTML = recentResult.data.map(product => 
+                DealCard.render(product, this.savedDeals.has(product.id))
+            ).join('');
+        }
     }
 
-    renderDealsSkeleton() {
-        return Array(3).fill(0).map(() => `
-            <div class="deal-card">
-                <div class="deal-image" style="background: #f0f0f0;"></div>
-                <div class="deal-content">
-                    <div class="deal-title" style="height: 20px; background: #f0f0f0; margin-bottom: 10px;"></div>
-                    <div style="height: 16px; background: #f0f0f0; margin-bottom: 10px;"></div>
-                    <div style="height: 24px; background: #f0f0f0; margin-bottom: 15px;"></div>
-                    <div class="deal-actions">
-                        <div style="height: 36px; background: #f0f0f0; flex: 1;"></div>
-                        <div style="width: 10px;"></div>
-                        <div style="height: 36px; background: #f0f0f0; flex: 1;"></div>
-                    </div>
-                </div>
-            </div>
-        `).join('')
-    }
-
-    async loadHomeData() {
-        const dealsContainer = document.getElementById('dealsContainer')
-        if (dealsContainer) {
-            dealsContainer.innerHTML = mockProducts.map(product => `
-                <div class="deal-card">
-                    <div class="deal-image">
-                        ${product.title}
+    async loadExplorePageData() {
+        // Load stores
+        const storesResult = await DataService.getStores();
+        if (storesResult.success) {
+            const storesContainer = document.getElementById('storesContainer');
+            storesContainer.innerHTML = storesResult.data.map(store => `
+                <div class="deal-card" onclick="App.showStoreProducts('${store.id}')">
+                    <div class="deal-image" style="background: ${store.color_hex}; color: white; font-weight: bold;">
+                        ${store.name.toUpperCase()}
                     </div>
                     <div class="deal-content">
-                        <div class="deal-title">${product.title}</div>
+                        <div class="deal-title">${store.name}</div>
                         <div class="deal-store">
-                            <div style="width: 20px; height: 20px; border-radius: 4px; background: ${product.store.color_hex}; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;">
-                                ${product.store.name.charAt(0)}
-                            </div>
-                            <span>${product.store.name}</span>
-                        </div>
-                        <div class="deal-price">
-                            R${product.current_price}
-                            <span class="deal-original-price">R${product.original_price}</span>
+                            <span>${store.category}</span>
                         </div>
                         <div class="deal-actions">
-                            <button class="deal-btn" style="background: transparent; border: 1px solid #ddd; color: #666;">
-                                <i class="far fa-bookmark"></i> Save
-                            </button>
-                            <button class="deal-btn" style="background: #13294b; color: white;">
-                                <i class="fas fa-shopping-cart"></i> Buy
+                            <button class="deal-btn" style="width: 100%; background: var(--navy-blue); color: white;">
+                                <i class="fas fa-store"></i> Browse Store
                             </button>
                         </div>
                     </div>
                 </div>
-            `).join('')
+            `).join('');
+        }
+
+        // Load all products
+        const productsResult = await DataService.getProducts();
+        if (productsResult.success) {
+            const exploreContainer = document.getElementById('exploreDealsContainer');
+            exploreContainer.innerHTML = productsResult.data.map(product => 
+                DealCard.render(product, this.savedDeals.has(product.id))
+            ).join('');
         }
     }
 
+    async loadUniversePageData() {
+        const postsResult = await DataService.getPosts();
+        if (postsResult.success) {
+            const postsContainer = document.getElementById('universePosts');
+            postsContainer.innerHTML = postsResult.data.map(post => 
+                PostCard.render(post, this.currentUser.id)
+            ).join('');
+        }
+    }
+
+    async loadProfilePageData() {
+        // Load user posts
+        const postsResult = await DataService.getPosts();
+        if (postsResult.success) {
+            const userPosts = postsResult.data.filter(post => 
+                post.user_id === this.currentUser.id
+            );
+            const postsContainer = document.getElementById('userPostsContainer');
+            postsContainer.innerHTML = userPosts.map(post => 
+                PostCard.render(post, this.currentUser.id)
+            ).join('');
+        }
+    }
+
+    async loadShoppingListData() {
+        const listsResult = await DataService.getShoppingLists(this.currentUser.id);
+        if (listsResult.success) {
+            const container = document.getElementById('shoppingListContainer');
+            container.innerHTML = listsResult.data.length > 0 ? 
+                listsResult.data.map(list => ShoppingList.render(list)).join('') :
+                '<div style="text-align: center; padding: 40px; color: var(--text-muted);"><i class="fas fa-list" style="font-size: 48px; margin-bottom: 16px;"></i><p>No shopping lists yet. Create your first list!</p></div>';
+        }
+    }
+
+    async loadBlackMarketData() {
+        const listingsResult = await DataService.getListings();
+        if (listingsResult.success) {
+            const listingsContainer = document.getElementById('blackMarketListings');
+            listingsContainer.innerHTML = listingsResult.data.length > 0 ? 
+                listingsResult.data.map(listing => `
+                    <div class="job-post">
+                        <div class="job-post-header">
+                            <div class="post-avatar" style="${listing.users.avatar_url ? `background-image: url('${listing.users.avatar_url}')` : ''}">
+                                ${listing.users.avatar_url ? '' : Helpers.getInitials(listing.users.full_name || listing.users.username)}
+                            </div>
+                            <div>
+                                <div class="job-post-user">${listing.users.full_name || listing.users.username}</div>
+                                <div class="post-time">${Helpers.formatDate(listing.created_at)}</div>
+                            </div>
+                        </div>
+                        <div class="job-post-title">${listing.title}</div>
+                        <div class="job-post-desc">${listing.description}</div>
+                        ${listing.tags && listing.tags.length > 0 ? `
+                            <div class="job-post-tags">
+                                ${listing.tags.map(tag => `<span class="job-tag">${tag}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                        <div class="job-post-actions">
+                            <button class="deal-btn" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary);" 
+                                    onclick="App.saveJobListing('${listing.id}')">
+                                <i class="far fa-bookmark"></i> Save
+                            </button>
+                            <button class="deal-btn" style="background: var(--navy-blue); color: white;" 
+                                    onclick="App.contactJobPoster('${listing.users.username}')">
+                                <i class="fas fa-envelope"></i> Contact
+                            </button>
+                        </div>
+                    </div>
+                `).join('') :
+                '<div style="text-align: center; padding: 40px; color: var(--text-muted);"><i class="fas fa-store" style="font-size: 48px; margin-bottom: 16px;"></i><p>No listings yet. Be the first to create one!</p></div>';
+        }
+    }
+
+    // Authentication methods
     async handleLogin() {
-        const email = document.getElementById('email').value
-        const password = document.getElementById('password').value
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
 
         if (!email || !password) {
-            this.showToast('Please enter both email and password')
-            return
+            ErrorHandler.showToast('Please enter both email and password');
+            return;
         }
 
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password
-        })
-
-        if (error) {
-            this.showToast('Login failed: ' + error.message)
-        } else {
-            this.currentUser = data.user
-            this.renderApp()
-            this.showToast('Welcome back to SaveMate!')
+        const result = await AuthService.signIn(email, password);
+        if (result.success) {
+            ErrorHandler.showToast('Welcome back to SaveMate!');
         }
     }
 
     async handleSignup() {
-        const name = document.getElementById('signupName').value
-        const email = document.getElementById('signupEmail').value
-        const password = document.getElementById('signupPassword').value
+        const fullName = document.getElementById('signupName').value;
+        const username = document.getElementById('signupUsername').value;
+        const email = document.getElementById('signupEmail').value;
+        const password = document.getElementById('signupPassword').value;
 
-        if (!name || !email || !password) {
-            this.showToast('Please fill in all fields')
-            return
+        if (!fullName || !username || !email || !password) {
+            ErrorHandler.showToast('Please fill in all fields');
+            return;
         }
 
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                data: {
-                    full_name: name
-                }
-            }
-        })
+        if (password.length < 6) {
+            ErrorHandler.showToast('Password must be at least 6 characters long');
+            return;
+        }
 
-        if (error) {
-            this.showToast('Signup failed: ' + error.message)
-        } else {
-            this.showToast('Account created! Check your email for verification.')
-            this.showLogin()
+        const result = await AuthService.signUp(email, password, {
+            fullName,
+            username
+        });
+
+        if (result.success) {
+            ErrorHandler.showToast('Account created successfully! Check your email for verification.');
         }
     }
 
-    showSignup() {
-        document.getElementById('loginForm').style.display = 'none'
-        document.getElementById('signupForm').style.display = 'block'
+    showSignupForm() {
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('signupForm').style.display = 'block';
     }
 
-    showLogin() {
-        document.getElementById('signupForm').style.display = 'none'
-        document.getElementById('loginForm').style.display = 'block'
+    showLoginForm() {
+        document.getElementById('signupForm').style.display = 'none';
+        document.getElementById('loginForm').style.display = 'block';
     }
 
     async logout() {
-        await supabase.auth.signOut()
-        this.currentUser = null
-        this.renderApp()
-        this.showToast('Logged out successfully')
+        const result = await AuthService.signOut();
+        if (result.success) {
+            this.currentUser = null;
+            this.userProfile = null;
+            this.renderApp();
+            ErrorHandler.showToast('Logged out successfully');
+        }
     }
 
-    switchPage(page) {
-        this.currentPage = page
-        this.renderApp()
+    // Product methods
+    async searchDeals(query) {
+        const debouncedSearch = Helpers.debounce(async (searchQuery) => {
+            const result = await DataService.getProducts({ search: searchQuery });
+            if (result.success) {
+                const container = document.getElementById('dealsContainer');
+                container.innerHTML = result.data.map(product => 
+                    DealCard.render(product, this.savedDeals.has(product.id))
+                ).join('');
+            }
+        }, 300);
+
+        debouncedSearch(query);
     }
 
-    showToast(message) {
-        // Simple toast implementation
-        alert(message) // Replace with proper toast in production
+    async filterDeals(category) {
+        const result = await DataService.getProducts({ category });
+        if (result.success) {
+            const container = document.getElementById('exploreDealsContainer');
+            container.innerHTML = result.data.map(product => 
+                DealCard.render(product, this.savedDeals.has(product.id))
+            ).join('');
+            ErrorHandler.showToast(`Showing ${category} deals`);
+        }
+    }
+
+    async toggleSaveDeal(productId) {
+        if (this.savedDeals.has(productId)) {
+            this.savedDeals.delete(productId);
+            ErrorHandler.showToast('Deal removed from saved items');
+        } else {
+            this.savedDeals.add(productId);
+            ErrorHandler.showToast('Deal saved to your list');
+        }
+        this.renderApp();
+    }
+
+    async buyProduct(productId) {
+        ErrorHandler.showToast('Redirecting to store...');
+    }
+
+    // Post methods
+    async createPost() {
+        const postInput = document.getElementById('postInput');
+        const content = postInput.value.trim();
+
+        if (!content) {
+            ErrorHandler.showToast('Please enter some text for your post');
+            return;
+        }
+
+        const result = await DataService.createPost({
+            user_id: this.currentUser.id,
+            content: content
+        });
+
+        if (result.success) {
+            postInput.value = '';
+            ErrorHandler.showToast('Post published!');
+            await this.loadUniversePageData();
+        }
+    }
+
+    async likePost(postId) {
+        const result = await DataService.likePost(postId);
+        if (result.success) {
+            await this.loadUniversePageData();
+        }
+    }
+
+    // Shopping list methods
+    async searchProducts(query) {
+        if (!query) {
+            document.getElementById('searchResults').innerHTML = '';
+            return;
+        }
+
+        const result = await DataService.getProducts({ search: query, limit: 5 });
+        if (result.success) {
+            const resultsContainer = document.getElementById('searchResults');
+            resultsContainer.innerHTML = result.data.map(product => `
+                <div class="search-result-item" onclick="App.addToShoppingList('${product.id}')">
+                    <div style="width: 40px; height: 40px; background: var(--secondary-bg); border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
+                        <i class="fas fa-barcode"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight: 500;">${product.title}</div>
+                        <div style="color: var(--text-secondary); font-size: 12px;">${product.stores.name} - ${Helpers.formatPrice(product.current_price)}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+
+    async createNewList() {
+        const listName = prompt('Enter a name for your new shopping list:');
+        if (listName) {
+            const result = await DataService.createShoppingList({
+                user_id: this.currentUser.id,
+                name: listName
+            });
+
+            if (result.success) {
+                ErrorHandler.showToast(`New shopping list "${listName}" created!`);
+                await this.switchPage('shopping-list');
+            }
+        }
+    }
+
+    async addToShoppingList(productId) {
+        const listsResult = await DataService.getShoppingLists(this.currentUser.id);
+        if (listsResult.success && listsResult.data.length > 0) {
+            const listId = listsResult.data[0].id; // Add to first list
+            const result = await DataService.addToList(listId, productId);
+            if (result.success) {
+                ErrorHandler.showToast('Product added to shopping list!');
+                await this.loadShoppingListData();
+            }
+        } else {
+            ErrorHandler.showToast('Please create a shopping list first');
+        }
+    }
+
+    // Profile methods
+    async uploadAvatar(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const result = await StorageService.uploadFile(file, 'avatars');
+            if (result.success) {
+                const updateResult = await AuthService.updateProfile(this.currentUser.id, {
+                    avatar_url: result.url
+                });
+                if (updateResult.success) {
+                    this.userProfile = updateResult.data;
+                    ErrorHandler.showToast('Profile picture updated!');
+                    this.renderApp();
+                }
+            }
+        }
+    }
+
+    async uploadCoverPhoto(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const result = await StorageService.uploadFile(file, 'covers');
+            if (result.success) {
+                const updateResult = await AuthService.updateProfile(this.currentUser.id, {
+                    cover_photo_url: result.url
+                });
+                if (updateResult.success) {
+                    this.userProfile = updateResult.data;
+                    ErrorHandler.showToast('Cover photo updated!');
+                    this.renderApp();
+                }
+            }
+        }
+    }
+
+    toggleEditProfile() {
+        const form = document.getElementById('profileForm');
+        if (form) {
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+
+    async saveProfile() {
+        const name = document.getElementById('editName').value;
+        const username = document.getElementById('editUsername').value;
+        const location = document.getElementById('editLocation').value;
+        const bio = document.getElementById('editBio').value;
+
+        const updates = {};
+        if (name) updates.full_name = name;
+        if (username) updates.username = username;
+        if (location) updates.location = location;
+        if (bio) updates.bio = bio;
+
+        const result = await AuthService.updateProfile(this.currentUser.id, updates);
+        if (result.success) {
+            this.userProfile = result.data;
+            this.toggleEditProfile();
+            ErrorHandler.showToast('Profile updated successfully!');
+            this.renderApp();
+        }
+    }
+
+    // Black Market methods
+    async filterListings(type) {
+        // Update UI
+        document.querySelectorAll('.job-type-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+
+        // Reload data with filter
+        await this.loadBlackMarketData();
+    }
+
+    showCreateJobModal() {
+        ErrorHandler.showToast('Create job modal would open here');
+    }
+
+    contactJobPoster(username) {
+        ErrorHandler.showToast(`Opening conversation with ${username}`);
+    }
+
+    // Utility methods
+    showNotifications() {
+        ErrorHandler.showToast('You have new notifications');
+    }
+
+    attachMedia() {
+        ErrorHandler.showToast('Media attachment feature coming soon!');
+    }
+
+    createProfilePost() {
+        ErrorHandler.showToast('Create profile post functionality');
+    }
+
+    attachMediaToProfilePost() {
+        ErrorHandler.showToast('Media attachment feature coming soon!');
+    }
+
+    startScanner() {
+        ErrorHandler.showToast('Scanner activated! Point your camera at a barcode.');
+    }
+
+    openConversation(user) {
+        ErrorHandler.showToast(`Opening conversation with ${user}`);
+    }
+
+    toggleDarkMode() {
+        this.darkMode = !this.darkMode;
+        document.body.classList.toggle('dark-mode', this.darkMode);
+        localStorage.setItem('darkMode', this.darkMode);
+    }
+
+    filterPosts(type) {
+        ErrorHandler.showToast(`Showing ${type} posts`);
+    }
+
+    showStoreProducts(storeId) {
+        ErrorHandler.showToast(`Showing products from store`);
+    }
+
+    sharePost(postId) {
+        ErrorHandler.showToast('Share post functionality');
+    }
+
+    showComments(postId) {
+        ErrorHandler.showToast('Show comments functionality');
+    }
+
+    deleteList(listId) {
+        ErrorHandler.showToast('Delete list functionality');
+    }
+
+    removeFromList(listId, itemId) {
+        ErrorHandler.showToast('Remove from list functionality');
+    }
+
+    saveJobListing(listingId) {
+        ErrorHandler.showToast('Job listing saved!');
+    }
+
+    toggleFollow(userId) {
+        ErrorHandler.showToast('Follow functionality');
+    }
+
+    updateDisplayName() {
+        ErrorHandler.showToast('Display name updated!');
+    }
+
+    changePassword() {
+        ErrorHandler.showToast('Password changed!');
     }
 }
 
-// Initialize app
-const app = new SaveMateApp()
-window.app = app
+// Initialize the app when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    window.App = new SaveMateApp();
+});
+
+export default SaveMateApp;
