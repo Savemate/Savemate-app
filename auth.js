@@ -1,4 +1,4 @@
-import { supabase } from './supabase.js';
+import { supabase } from '.supabase.js';
 import { ErrorHandler } from './errorHandler.js';
 
 export class AuthService {
