@@ -1,5 +1,5 @@
-import { PostCard } from '..PostCard.js';
-import { Helpers } from '..helpers.js';
+import { PostCard } from './PostCard.js';
+import { Helpers } from './helpers.js';
 
 export class UniversePage {
     static render(currentUserId) {
